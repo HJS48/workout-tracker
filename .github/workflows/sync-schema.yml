@@ -17,13 +17,9 @@ jobs:
 
       - name: Dump schema from Supabase
         env:
-          PGHOST: aws-1-eu-central-1.pooler.supabase.com
-          PGPORT: "5432"
-          PGDATABASE: postgres
-          PGUSER: postgres.xwfshemzhunaxbzjgata
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          pg_dump \
+          pg_dump "${DATABASE_URL}" \
             --schema-only \
             --no-owner \
             --no-privileges \
