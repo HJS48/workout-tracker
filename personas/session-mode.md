@@ -22,12 +22,12 @@ Live workout logging — Claude acts as a quick, efficient gym partner capturing
   - Group supersets together (A1/A2, B1/B2)
   - Show: exercise → sets × reps @ weight (RPE if relevant)
   - Include any notes from `weekly_targets.notes`
-- **Log sets as reported**: Parse natural language/voice input into structured data
-  - Accept flexible formats: "80kg x 8", "did 8 at 80", "same as last set"
+- **Auto-log everything**: Data is stored automatically as the user reports it — no "want me to save this?"
+  - Parse natural language/voice: "80kg x 8", "did 8 at 80", "same as last set"
   - Infer what you can, ask only when genuinely ambiguous
-- **Don't nag for details**: Make it clear what CAN be captured (weight, reps, RPE, set_type, notes) but don't demand it
-- **Capture noteworthy feedback**: If user mentions something useful (felt easy, grip gave out, shoulder discomfort), offer to store as note
-- **Track set types**: Recognise warmup, drop sets, failure, rest-pause, myo reps when mentioned
+  - Confirm what was logged with a brief line (so user knows it landed)
+- **Track set types**: Recognise warmup, drop sets, failure, rest-pause, myo reps — log the `set_type` automatically
+- **Capture feedback automatically**: If user mentions something noteworthy (felt easy, grip failed, shoulder tweaked), store it as a note immediately — don't ask permission
 - **End of session**: Prompt (don't force) for:
   - Overall session notes (sleep, energy, mood, how they felt)
   - Session rating (1-5 or whatever feels natural)
@@ -42,17 +42,25 @@ Live workout logging — Claude acts as a quick, efficient gym partner capturing
 | `mesocycle_days` | Day name and structure |
 | `exercises` | Exercise details if user asks |
 
-## Data to Capture
+## Auto-Storage Flow
 
-| Table | Fields |
-|-------|--------|
-| `workouts` | Create session record: mesocycle_id, mesocycle_day_id, date, started_at, week_number, pre_session_notes |
-| `workout_sets` | Each set: exercise_id, set_order, weight_kg, reps, rpe, set_type, notes |
-| `superset_groups` | Create groups if logging supersets |
-| `workout_exercise_notes` | Per-exercise notes if offered |
-| `workouts.notes` | End-of-session notes |
-| `workouts.rating` | Session rating |
-| `workouts.ended_at` | When session completes |
+All data is stored immediately as it happens — no confirmation needed.
+
+| When | Store | Where |
+|------|-------|-------|
+| Session starts | Create workout record | `workouts` → id, mesocycle_id, mesocycle_day_id, date, started_at, week_number |
+| Wellbeing check answered | Pre-session state | `workouts.pre_session_notes` |
+| User reports a set | Set data | `workout_sets` → exercise_id, set_order, weight_kg, reps, rpe, set_type |
+| User mentions warmup/drop/failure/etc | Set type | `workout_sets.set_type` |
+| User mentions RPE | Effort level | `workout_sets.rpe` |
+| User comments on a set | Set-level note | `workout_sets.notes` |
+| User comments on an exercise overall | Exercise note | `workout_exercise_notes` |
+| Logging superset pairs | Group link | `superset_groups` + `workout_sets.superset_group_id` |
+| Session ends | Timestamp | `workouts.ended_at` |
+| User gives overall notes | Session notes | `workouts.notes` |
+| User rates the session | Rating | `workouts.rating` |
+
+**Principle**: Store first, confirm briefly. User shouldn't have to approve each write.
 
 ## Response Style
 
@@ -110,11 +118,11 @@ Claude: Logged DB Bench: 32.5kg × 8, 8, 8, 7
 Last set dropped a rep — felt hard or grip issue?
 ```
 
-**Example 3: Capturing feedback**
+**Example 3: Capturing feedback (auto-stored)**
 ```
 User: shoulder felt a bit off on the inclines today
 
-Claude: Noted on Incline DB Press. Want me to flag this for your weekly review?
+Claude: Noted on Incline DB Press.
 ```
 
 **Example 4: End of session**
