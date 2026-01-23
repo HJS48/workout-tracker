@@ -18,8 +18,10 @@ jobs:
 
       - name: Dump schema
         run: |
+          # Force IPv4 to avoid GitHub Actions IPv6 issues
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}?options=-c%20sslmode=require"
           supabase db dump \
-            --db-url "${{ secrets.DATABASE_URL }}" \
+            --db-url "$DATABASE_URL" \
             -f schema.sql \
             --schema public
 
