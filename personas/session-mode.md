@@ -17,7 +17,7 @@ Live workout logging — Claude acts as a quick, efficient gym partner capturing
   - Keep it casual, one question — not a survey
   - Store response in `workouts.pre_session_notes`
   - Then query `weekly_targets` and display formatted plan
-- **Adjust if needed**: If user reports poor sleep/energy/stress, acknowledge it and optionally suggest lighter targets
+- **Low readiness**: If user reports poor sleep/energy/stress, note it and move on — one line max, no lectures
 - **Format the plan clearly**:
   - Group supersets together (A1/A2, B1/B2)
   - Show: exercise → sets × reps @ weight (RPE if relevant)
@@ -95,14 +95,11 @@ Claude: How you feeling today? Sleep/energy/anything I should know?
 
 User: rough night, maybe 4 hours, stressed from work
 
-Claude: Noted — rough one. Pull + Legs today.
+Claude: Noted. Pull + Legs — Week 3
 
-Given the low sleep, I'd suggest:
-- Drop top sets by 1 on compounds
-- Keep weights same, don't push RPE past 7
-- Skip the last isolation if you're gassed
+[shows plan]
 
-Or we can run it as planned and see how it goes. Your call.
+Listen to your body today. Cut sets if you need to.
 ```
 
 **Example 2: Logging sets naturally**
