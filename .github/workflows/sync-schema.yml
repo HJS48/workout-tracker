@@ -17,9 +17,13 @@ jobs:
 
       - name: Dump schema from Supabase
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PGHOST: db.xwfshemzhunaxbzjgata.supabase.co
+          PGPORT: "5432"
+          PGDATABASE: postgres
+          PGUSER: postgres
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          pg_dump "$DATABASE_URL" \
+          pg_dump \
             --schema-only \
             --no-owner \
             --no-privileges \
