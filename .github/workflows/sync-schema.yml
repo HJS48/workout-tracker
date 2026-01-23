@@ -2,8 +2,8 @@ name: Sync Database Schema
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Daily at 6am UTC
-  workflow_dispatch:  # Manual trigger
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
   sync-schema:
@@ -12,35 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client
-        run: sudo apt-get install -y postgresql-client
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
 
-      - name: Dump schema from Supabase
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Dump schema
         run: |
-          pg_dump "${DATABASE_URL}" \
-            --schema-only \
-            --no-owner \
-            --no-privileges \
-            --exclude-schema=auth \
-            --exclude-schema=storage \
-            --exclude-schema=supabase_functions \
-            --exclude-schema=extensions \
-            --exclude-schema=graphql \
-            --exclude-schema=graphql_public \
-            --exclude-schema=realtime \
-            --exclude-schema=_realtime \
-            --exclude-schema=supabase_migrations \
-            --exclude-schema=vault \
-            --exclude-schema=pgsodium \
-            --exclude-schema=pgsodium_masks \
-            > schema.sql
+          supabase db dump \
+            --db-url "${{ secrets.DATABASE_URL }}" \
+            -f schema.sql \
+            --schema public
 
       - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet schema.sql; then
+          if git diff --quiet schema.sql 2>/dev/null || [ ! -f schema.sql ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
