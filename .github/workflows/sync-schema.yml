@@ -17,7 +17,7 @@ jobs:
 
       - name: Export schema via SQL
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: postgresql://postgres.xwfshemzhunaxbzjgata:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?sslmode=require
         run: |
           psql "$DATABASE_URL" -f - > schema.sql << 'EOF'
           -- Tables
