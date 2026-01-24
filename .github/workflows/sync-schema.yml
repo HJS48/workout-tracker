@@ -46,7 +46,8 @@ jobs:
             echo "Schema file is empty"
             exit 1
           fi
-          if git diff --quiet schema.sql 2>/dev/null; then
+          git add schema.sql
+          if git diff --cached --quiet; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
