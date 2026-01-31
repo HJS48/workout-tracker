@@ -15,16 +15,39 @@ Review the previous week and generate the next using auto-progression logic.
 
 ### Review Last Week
 
-1. Pull completed sessions from `workouts` and `workout_sets`
-2. Show summary: sessions completed, avg readiness, any flags
-3. Per exercise: target vs actual, pump, joint issues
-4. Highlight anything that needs attention
+**1. Pull completed sessions**
+- Query all workouts for the week
+- Query all sets, exercise notes, and pre-session notes
+
+**2. Show summary**
+- Sessions completed vs planned (e.g., 3/4)
+- Avg sleep, energy, soreness from pre-session notes
+- Any session-level notes or flags
+
+**3. Per exercise table**
+
+| Exercise | Target | Actual | Pump | Joint | Notes |
+|----------|--------|--------|------|-------|-------|
+| Pull Up | 3×6-8 @ BW | 8, 8, 6 | 2 | 0 | — |
+
+- Target: sets × reps @ weight from `weekly_targets`
+- Actual: reps per set @ weight from `workout_sets`
+- Pump: from `workout_exercise_notes.pump_quality`
+- Joint: from `workout_exercise_notes.joint_discomfort`
+- Notes: any exercise or set notes worth surfacing
+
+**4. Highlight flags**
+- Joint discomfort > 0
+- Pump 1-2 (connection issues)
+- Significant rep misses
+- Exercises that were swapped mid-session
+- Any notes mentioning pain, discomfort, or technique issues
 
 ### Generate Next Week
 
-1. Run auto-progression logic for each exercise
+1. Run auto-progression logic for each exercise (see below)
 2. Show proposed changes in a table (exercise, last week, result, next week, change)
-3. Flag any exercises needing manual decision (joint issues, conflicting signals)
+3. Flag any exercises needing manual decision
 4. Ask user to resolve flags
 5. Allow overrides
 6. Confirm before saving to `weekly_targets`
@@ -33,17 +56,15 @@ Review the previous week and generate the next using auto-progression logic.
 
 ## Data Read
 
-| Table | Fields | Purpose |
-|-------|--------|---------|
-| `weekly_targets` | exercise_id, target_sets, target_reps, target_weight_kg, week_number | Previous targets |
-| `workout_sets` | exercise_id, weight_kg, reps, rpe | Actual performance |
-| `workout_exercise_notes` | pump_quality, joint_discomfort | Feedback |
-| `workouts` | sleep_quality, energy_level, muscle_soreness, rating | Session readiness |
-| `exercises` | name, equipment | Exercise info + increment size |
-| `mesocycles` | rpe_start, rpe_end, weeks | RPE progression plan |
-| `active_mesocycle` | name, week_number, end_date | Block context |
-
----
+| Table | Purpose |
+|-------|---------|
+| `weekly_targets` | Previous week's targets |
+| `workout_sets` | Actual performance (weight, reps, RPE) |
+| `workout_exercise_notes` | Pump, joint discomfort |
+| `workouts` | Session metadata, pre_session_notes (soreness) |
+| `exercises` | Exercise info, equipment type |
+| `mesocycles` | RPE progression plan (rpe_start, rpe_end) |
+| `active_mesocycle` | Current block context |
 
 ## Data Write
 
@@ -55,99 +76,158 @@ Review the previous week and generate the next using auto-progression logic.
 
 ## Auto-Progression Logic
 
-### Inputs per Exercise
+### Core Principles
 
-- Target: sets × reps @ weight @ RPE (from `weekly_targets`)
-- Actual: sets × reps @ weight @ RPE (from `workout_sets`)
-- Pump quality 1-5 (from `workout_exercise_notes`)
-- Joint discomfort 0-3 (from `workout_exercise_notes`)
-- Pre-session readiness: sleep, energy (from `workouts`)
-- Equipment type (from `exercises`)
+Progression has three levers: **weight**, **reps**, and **sets**. Only adjust one at a time.
 
-Note: `target_reps` is stored as text (e.g., "8-10"). Parse to extract bottom and top of range.
+- **Reps** — increase weekly via RPE (+1 rep/set at same weight)
+- **Weight** — increases when exceeding top of rep range on ALL sets
+- **Sets** — increase across the meso; pump + soreness confirm readiness
 
-### Weight Progression
+**Priority order when multiple changes are possible:**
+1. If adding a set → hold reps (same as previous week), hold weight
+2. If increasing reps → hold weight, hold sets
+3. If increasing weight → reset reps to bottom of range, hold sets
+
+---
+
+### Weekly Review Flow
+
+For each exercise, follow this sequence:
+
+**Step 1: Check for flags**
+- Joint discomfort > 0? → Flag, don't progress, consider swap if 2+ weeks
+- Pump 1-2 for 2+ weeks? → Flag, don't add volume, fix exercise first
+- Missed session? → Carry forward unchanged
+
+**Step 2: Assess set progression**
+- Get pump (from exercise feedback)
+- Get soreness (from pre-session notes when that muscle was last trained)
+- Apply set decision table (see below)
+- If adding a set → stop here, hold reps
+
+**Step 3: Assess rep progression**
+- Compare actual reps to target
+- Apply rep decision table (see below)
+- If exceeded range on ALL sets → move to Step 4
+
+**Step 4: Assess weight progression**
+- Only if exceeded rep range on ALL sets
+- Bump weight per equipment increments
+- Reset rep targets to bottom of range
+
+---
+
+### Progression Rules
+
+#### Sets
+
+| Pump | Soreness (pre-session, that muscle) | Action |
+|------|-------------------------------------|--------|
+| 1-2 | 0-2 | +1 set |
+| 3-4 | 2-3 | Hold |
+| 4-5 | 4-5 | -1 set |
+
+**Additional rules:**
+- Spread increases across days (e.g., +2 chest = +1 Day 1, +1 Day 3)
+- Don't add sets if significantly missing reps
+- New exercises: hold sets for 1 week minimum
+- No soreness data yet: hold, flag for review
+- Stall (same reps 2 weeks): consider +1 set
+
+#### Reps
 
 | Condition | Action |
 |-----------|--------|
-| Hit top of rep range on all sets | Bump weight |
-| Hit bottom of rep range | Hold |
-| Missed bottom, poor readiness (sleep ≤2 or energy ≤2) | Hold (retest) |
-| Missed bottom, readiness fine, RPE < 9 | Hold (execution issue) |
-| Missed bottom, readiness fine, RPE ≥ 9 | Drop weight |
+| Hit reps at target RPE | +1 rep/set next week |
+| Missed reps, pump high (4-5) | Hold — exercise is working |
+| Missed reps, pump low, RPE high | Drop weight, rebuild reps |
 
-### Equipment Increments
-
-| Equipment | Increment |
-|-----------|-----------|
-| barbell | 2.5kg |
-| smith | 2.5kg |
-| dumbbell | 2kg (if ≤12kg, prefer volume instead) |
-| cable | 2.5kg |
-| machine | 2.5kg |
-| bodyweight | Add reps first, then load |
-
-### Volume Progression
-
-Logic: High pump = muscle responding well = can handle more stimulus.
-
-| Condition | Action |
-|-----------|--------|
-| Pump 4-5 AND pre-session soreness ≤2 AND hit all reps | Add set |
-| Pump 1-2 OR pre-session soreness ≥4 | Drop set |
-| Otherwise | Hold |
-
-Note: "Soreness" here refers to `workouts.muscle_soreness` (pre-session, for the relevant muscle group).
-
-### Safeguard
-
-If adding volume → do NOT also bump weight. One variable at a time.
-
-### RPE Progression
-
-Follows mesocycle plan with linear interpolation:
-
+**RPE target calculation:**
 ```
 target_rpe = rpe_start + (current_week / total_weeks) * (rpe_end - rpe_start)
 ```
-
 Example: rpe_start=6, rpe_end=9, 4-week block → Week 1: 6.75, Week 2: 7.5, Week 3: 8.25, Week 4: 9
 
-### Deload
+#### Weight
 
-Trigger: Every 4th week OR end of mesocycle OR user requests.
+| Condition | Action |
+|-----------|--------|
+| Exceeded range on ALL sets | Bump weight |
+| Exceeded range on some sets | Hold, push for consistency |
+| Within range / hit top | Hold, +1 rep/set |
 
-Deload prescription:
+**Equipment increments:**
+
+| Equipment | Increment |
+|-----------|-----------|
+| Barbell / Smith | 2.5kg |
+| Dumbbell | 2kg |
+| Cable / Machine | 2.5kg |
+| Bodyweight | Add reps first, then load |
+
+---
+
+### Feedback Interpretation
+
+#### Pump (1-5)
+- **1-2**: Not connecting with muscle. Don't add volume — fix exercise first (drop weight, adjust tempo, or swap)
+- **3**: Adequate. Hold or progress normally
+- **4-5**: Strong stimulus. Exercise is working — trust it even if reps are low
+
+#### Soreness (1-5, pre-session notes from when that muscle was last trained)
+- **0-2**: Recovering fast. Can handle more volume
+- **2-3**: On track. Hold
+- **4-5**: Not recovering. Consider dropping volume
+
+#### RPE
+- Trending toward 9-10 across exercises → approaching limit, prepare for deload
+- Consistently below target → weight may be too light
+
+#### Isolation exercises
+Pump matters more than reps. If pump is 4-5 but reps are low, the exercise is working — hold and trust it.
+
+#### Myo-rep / Giant set exercises
+Progress by +5 total reps per week (not per set). If missed target, hold.
+
+---
+
+### Exception Handling
+
+#### Flags (require manual decision)
+- Joint discomfort > 0
+- Conflicting signals (good performance + discomfort)
+- Pump 1-2 for 2+ weeks (exercise not working)
+
+#### Deload
+Trigger: Every 4th week OR end of mesocycle OR user requests
+
+Prescription:
 - 50% volume (half the sets)
 - RPE 5-6
 - Same weights (maintain neural patterns)
 
-### Flags (Manual Decision Required)
+#### Finding weight (Week 1 / new exercise)
+- Pick weight that felt right
+- Target top of rep range with consistency
+- Don't progress — stabilise first
 
-- Joint discomfort > 0 on any set
-- Conflicting signals (good performance + discomfort)
-- Persistent joint issues (2+ weeks) → suggest exercise swap
+#### "Felt amazing" but missed reps
+- Hold everything
+- Accept higher RPE
+- Don't chase numbers when stimulus is there
 
-### Auto-Handle (No Flag)
+#### Drop sets
+If exercise consistently drops off hard on later sets, allow drop set on final set rather than reducing weight across all sets.
 
-| Situation | Action |
-|-----------|--------|
-| Missed session | Carry forward unchanged |
-| Stall (same reps 2 weeks in a row) | Add set |
-| Partial completion (fewer sets than planned) | Carry forward, note in review |
+#### Missed session
+Carry forward unchanged.
 
-Note: Stall detection requires comparing current week to previous week in `workout_sets`.
+#### Stall (same reps 2 weeks)
+Consider adding a set.
 
----
-
-## Exercise Swaps
-
-If joint discomfort persists 2+ weeks on same exercise:
-
-1. Flag for review
-2. Suggest alternatives from `exercises` with same `muscle_group` and `movement_pattern`
-3. User picks replacement or keeps current
-4. If swapped, carry over progression (relative intensity)
+#### Partial completion (fewer sets than planned)
+Carry forward, note in review.
 
 ---
 
@@ -156,7 +236,7 @@ If joint discomfort persists 2+ weeks on same exercise:
 - Tables for summaries and proposed changes
 - Show changes clearly before saving
 - Always confirm before writing
-- Connect dots: "Pump has been low on lateral raises for 3 weeks — consider swapping to cable version?"
+- Go through exercises one by one if user requests
 
 ---
 
@@ -191,17 +271,17 @@ Claude: Week 4 Proposed Changes
 
 | Exercise | Last Week | Result | Next Week | Change |
 |----------|-----------|--------|-----------|--------|
-| DB Bench | 4×8 @32.5kg | Hit 8,8,8,7 | 4×8 @32.5kg | Hold (missed top on set 4) |
-| Leg Press | 4×12 @140kg | Hit 12,12,12,12 | 4×12 @145kg | +5kg (hit top of range) |
-| Pull-ups | 3×6 @+10kg | Hit 6,6,5 | 3×6 @+10kg | Hold |
-| Lat Raise | 3×15 @10kg | Hit all, pump 5 | 4×15 @10kg | +1 set (high pump, low soreness) |
+| DB Bench | 4×8 @32.5kg | 8,8,8,7 | 4×9,9,9,8 @32.5kg | +1 rep/set |
+| Leg Press | 4×12 @140kg | 12,12,12,12 | 4×12 @145kg | +5kg (exceeded range) |
+| Pull-ups | 3×6 @+10kg | 6,6,5 | 3×7,7,6 @+10kg | +1 rep/set |
+| Lat Raise | 3×15 @10kg | 15,15,15, pump 5 | 4×15,15,15,15 @10kg | +1 set (high pump, low soreness) |
 
-⚠️ Flag: Incline DB — shoulder discomfort 2 weeks. Swap to low incline or cable fly?
+⚠️ Flag: Incline DB — shoulder discomfort 2 weeks. Swap?
 
 User: Let's try cable fly
 
 Claude: Swapped Incline DB → Cable Fly
-Starting at 3×12 @12.5kg (similar relative load)
+Starting at 3×12 @12.5kg
 
 Confirm Week 4?
 ```
@@ -210,7 +290,7 @@ Confirm Week 4?
 ```
 User: Looks good, save it
 
-Claude: ✓ Week 4 saved to weekly_targets.
+Claude: ✓ Week 4 saved.
 
 4 exercises progressed, 1 swapped, 2 held.
 ```
