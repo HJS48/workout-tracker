@@ -47,6 +47,7 @@ const state = {
   loggedSets: {},       // { exerciseId: [set, ...] }
   feedback: {},         // { exerciseId: { pump, joint } }
   activeExercise: null, // index
+  nextDayNumber: null,  // auto-detected from last workout
   error: null,
   loading: false,
   editingSet: null,
@@ -99,8 +100,8 @@ function renderHomeScreen() {
             <span class="readiness-value">${r.body_battery_morning ?? '—'}</span>
           </div>
           <div class="readiness-item">
-            <span class="readiness-label">Sleep Score</span>
-            <span class="readiness-value">${r.sleep_score ?? '—'}</span>
+            <span class="readiness-label">Sleep</span>
+            <span class="readiness-value">${r.sleep_duration_s ? formatDuration(r.sleep_duration_s) : '—'}</span>
           </div>
           <div class="readiness-item">
             <span class="readiness-label">Stress Avg</span>
@@ -116,11 +117,21 @@ function renderHomeScreen() {
 
   let dayPicker = '';
   if (state.mesocycle?.days?.length) {
+    const nextDay = state.nextDayNumber;
+    const suggestedDay = nextDay ? state.mesocycle.days.find(d => d.day_number === nextDay) : null;
+
     dayPicker = `
       <div class="card">
         <div class="card-title">Start Workout</div>
+        ${suggestedDay ? `
+          <button class="day-btn suggested" data-day-id="${suggestedDay.id}">
+            <div class="day-name">Day ${suggestedDay.day_number}: ${esc(suggestedDay.name)}</div>
+            <div class="day-notes">Up next</div>
+          </button>
+          <div class="text-dim text-sm mt-12" style="margin-bottom:8px">Or pick another:</div>
+        ` : ''}
         <div class="day-list">
-          ${state.mesocycle.days.map(d => `
+          ${state.mesocycle.days.filter(d => !suggestedDay || d.id !== suggestedDay.id).map(d => `
             <button class="day-btn" data-day-id="${d.id}">
               <div class="day-name">Day ${d.day_number}: ${esc(d.name)}</div>
               ${d.notes ? `<div class="day-notes">${esc(d.notes)}</div>` : ''}
@@ -153,10 +164,37 @@ async function loadHomeData() {
     ]);
     state.mesocycle = meso;
     state.readiness = readiness;
+
+    // Auto-detect next training day from last workout
+    if (meso?.id && meso.days?.length) {
+      try {
+        const lastWorkout = await fetchLastWorkout(meso.id);
+        if (lastWorkout) {
+          const lastDay = meso.days.find(d => d.id === lastWorkout.mesocycle_day_id);
+          if (lastDay) {
+            const totalDays = meso.days.length;
+            state.nextDayNumber = (lastDay.day_number % totalDays) + 1;
+          }
+        } else {
+          // No workouts yet — start with day 1
+          state.nextDayNumber = 1;
+        }
+      } catch (_) { /* best effort */ }
+    }
   } catch (e) {
     state.error = e.message === 'offline' ? 'You are offline' : `Failed to load: ${e.message}`;
   }
   render();
+}
+
+async function fetchLastWorkout(mesocycleId) {
+  const url = `${SUPABASE_URL}/rest/v1/workouts?mesocycle_id=eq.${mesocycleId}&order=date.desc,created_at.desc&limit=1&select=mesocycle_day_id`;
+  const res = await fetch(url, {
+    headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` }
+  });
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return rows[0] || null;
 }
 
 function calcWeekNumber(startDate) {
@@ -723,6 +761,12 @@ function bindEvents() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+function formatDuration(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function esc(str) {
   if (!str) return '';
   const div = document.createElement('div');

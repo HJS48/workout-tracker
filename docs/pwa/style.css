@@ -180,6 +180,7 @@ html, body {
   transition: border-color 0.15s;
 }
 .day-btn:active { border-color: var(--accent); }
+.day-btn.suggested { border-color: var(--accent); background: rgba(74, 158, 255, 0.08); }
 .day-btn .day-name { font-weight: 600; }
 .day-btn .day-notes { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
 
