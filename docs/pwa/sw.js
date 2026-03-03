@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-v1';
+const CACHE_NAME = 'workout-v2';
 const SHELL_FILES = ['./', 'app.js', 'style.css', 'manifest.json'];
 
 self.addEventListener('install', e => {
