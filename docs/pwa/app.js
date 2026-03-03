@@ -35,7 +35,7 @@ async function fetchSets(workoutId, exerciseId) {
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const state = {
-  screen: 'pin',
+  screen: 'home',
   mesocycle: null,
   readiness: null,
   selectedDay: null,
@@ -52,38 +52,12 @@ const state = {
   editingSet: null,
 };
 
-// ─── PIN Logic ───────────────────────────────────────────────────────────────
-const PIN_HASH_KEY = 'wt_pin_hash';
-let pinBuffer = '';
-let pinMode = 'enter'; // 'set', 'confirm', 'enter'
-let pinSetBuffer = '';
-
-async function hashPin(pin) {
-  const data = new TextEncoder().encode(pin + 'workout-tracker-salt');
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function hasPinSet() {
-  return !!localStorage.getItem(PIN_HASH_KEY);
-}
-
-async function checkPin(pin) {
-  const stored = localStorage.getItem(PIN_HASH_KEY);
-  return stored === await hashPin(pin);
-}
-
-async function setPin(pin) {
-  localStorage.setItem(PIN_HASH_KEY, await hashPin(pin));
-}
-
 // ─── Rendering ───────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const app = () => document.getElementById('app');
 
 function render() {
   const screens = {
-    pin: renderPinScreen,
     home: renderHomeScreen,
     setup: renderSetupScreen,
     session: renderSessionScreen,
@@ -92,88 +66,6 @@ function render() {
   const renderer = screens[state.screen];
   if (renderer) app().innerHTML = renderer();
   bindEvents();
-}
-
-// ─── PIN Screen ──────────────────────────────────────────────────────────────
-function renderPinScreen() {
-  if (!hasPinSet()) pinMode = 'set';
-  const title = pinMode === 'set' ? 'Set PIN' : pinMode === 'confirm' ? 'Confirm PIN' : 'Enter PIN';
-  const dots = [0,1,2,3].map(i =>
-    `<div class="pin-dot ${i < pinBuffer.length ? 'filled' : ''}"></div>`
-  ).join('');
-
-  return `
-    <div class="pin-screen">
-      <h1>${title}</h1>
-      <div class="pin-dots">${dots}</div>
-      <div class="pin-msg" id="pin-msg"></div>
-      <div class="pin-pad">
-        ${[1,2,3,4,5,6,7,8,9].map(n =>
-          `<button class="pin-key" data-key="${n}">${n}</button>`
-        ).join('')}
-        <button class="pin-key empty"></button>
-        <button class="pin-key" data-key="0">0</button>
-        <button class="pin-key" data-key="del">&#9003;</button>
-      </div>
-    </div>`;
-}
-
-async function handlePinKey(key) {
-  if (key === 'del') {
-    pinBuffer = pinBuffer.slice(0, -1);
-    render();
-    return;
-  }
-  pinBuffer += key;
-  render();
-
-  if (pinBuffer.length < 4) return;
-
-  const pin = pinBuffer;
-  pinBuffer = '';
-
-  if (pinMode === 'set') {
-    pinSetBuffer = pin;
-    pinMode = 'confirm';
-    render();
-  } else if (pinMode === 'confirm') {
-    if (pin === pinSetBuffer) {
-      await setPin(pin);
-      pinMode = 'enter';
-      state.screen = 'home';
-      render();
-      loadHomeData();
-    } else {
-      pinMode = 'set';
-      pinSetBuffer = '';
-      render();
-      showPinMsg('PINs did not match. Try again.', true);
-    }
-  } else {
-    if (await checkPin(pin)) {
-      state.screen = 'home';
-      render();
-      loadHomeData();
-    } else {
-      render();
-      showPinMsg('Wrong PIN', true);
-    }
-  }
-}
-
-function showPinMsg(msg, isError) {
-  const el = $('pin-msg');
-  if (el) {
-    el.textContent = msg;
-    el.className = isError ? 'pin-msg error' : 'pin-msg';
-    if (isError) {
-      document.querySelectorAll('.pin-dot').forEach(d => d.classList.add('error'));
-      setTimeout(() => {
-        document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
-        if (el) el.textContent = '';
-      }, 1000);
-    }
-  }
 }
 
 // ─── Home Screen ─────────────────────────────────────────────────────────────
@@ -723,11 +615,6 @@ async function finishWorkout() {
 
 // ─── Event Binding ───────────────────────────────────────────────────────────
 function bindEvents() {
-  // PIN keys
-  document.querySelectorAll('.pin-key[data-key]').forEach(btn => {
-    btn.onclick = () => handlePinKey(btn.dataset.key);
-  });
-
   // Day picker
   document.querySelectorAll('.day-btn').forEach(btn => {
     btn.onclick = () => {
@@ -862,3 +749,4 @@ if ('serviceWorker' in navigator) {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 render();
+loadHomeData();
