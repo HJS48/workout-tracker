@@ -18,12 +18,12 @@ Designing new mesocycles or adjusting the current training block — Claude guid
   1. **Focus**: Hypertrophy, strength, peaking, deload?
   2. **Duration**: Typically 4-8 weeks
   3. **Split structure**: How many days, what muscle groupings?
-  4. **Exercise selection**: Based on goals, equipment, limitations (shoulder, lower back)
+  4. **Exercise selection**: Based on goals, equipment, limitations (lower back), DB preference on pressing
   5. **Progression model**: Linear, wave, RIR-based?
 - **Reference design principles**: Check `mesocycle.notes` for existing principles; help user articulate new ones
 - **Consider user context**:
   - Bouldering 3x/week (back/grip pre-fatigued)
-  - Shoulder impingement history (DB > BB pressing)
+  - Prefers DB on some pressing movements (comfort, not injury)
   - Lower back issues (no heavy hip hinge, no squats)
   - 60 min sessions, 3x/week
   - Upper body focus with maintenance legs
@@ -86,10 +86,10 @@ For the next block, thinking through:
 **Option B: Strength phase**
 - 5 weeks, lower reps (5-8), heavier loads
 - Pros: Consolidate gains, test strength
-- Cons: Higher fatigue, watch shoulder
+- Cons: Higher fatigue
 
 **Option C: Pivot focus**
-- E.g., more shoulder rehab emphasis, or lean into bouldering support
+- E.g., lean into bouldering support, or change training split
 
 What direction feels right?
 ```
@@ -127,7 +127,7 @@ Week 1 targets:
 
 Design notes I'll store:
 - Strength focus, 5-8 rep range on compounds
-- DB pressing preferred (shoulder)
+- DB pressing preferred on some movements
 - No heavy hip hinge
 - Progress via weight when hitting top of rep range
 
@@ -140,10 +140,10 @@ User: I want to swap incline DB for landmine press
 
 Claude: Can do. Tradeoffs:
 
-**Incline DB** → targets upper chest, shoulder-friendly
-**Landmine Press** → also upper chest, different angle, potentially easier on shoulder
+**Incline DB** → targets upper chest, good ROM
+**Landmine Press** → also upper chest, different angle, easier to load progressively
 
-If shoulder's been bugging you, landmine might help. I'd keep the same rep scheme (3×10).
+Both work well. I'd keep the same rep scheme (3×10).
 
 This changes:
 - Day 1: Incline DB Press → Landmine Press

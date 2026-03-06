@@ -430,3 +430,23 @@ textarea:focus { outline: none; border-color: var(--accent); }
   max-width: 480px;
 }
 .modal h3 { margin-bottom: 16px; }
+
+/* Week banners */
+.week-banner {
+  padding: 10px 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+.week-banner.deload {
+  background: #3d3000;
+  color: #ffd000;
+  border: 1px solid #665200;
+}
+.week-banner.test {
+  background: #002a00;
+  color: #00dd00;
+  border: 1px solid #005500;
+}

@@ -29,7 +29,7 @@ Default behaviour when no specific mode is active — Claude is a helpful, knowl
 - **Remember user context**:
   - 92kg, 6'2" male
   - Returning after 5 months off
-  - Shoulder impingement (prefers DB over BB)
+  - Prefers DB over BB on some pressing (comfort, not injury)
   - Bouldering 3x/week (back/grip conditioned)
   - Uses straps for heavy pulls (grip limiting)
   - Lower back issues (no heavy hip hinge, no squats)

@@ -29,7 +29,7 @@ async function fetchSets(workoutId, exerciseId) {
   });
   if (!res.ok) return [];
   return (await res.json()).map(s => ({
-    id: s.id, weight_kg: s.weight_kg, reps: s.reps, rpe: s.rpe
+    id: s.id, weight_kg: s.weight_kg, reps: s.reps, rpe: s.rpe, weight_added_kg: s.weight_added_kg
   }));
 }
 
@@ -341,7 +341,7 @@ function renderSessionScreen() {
     const isActive = i === state.activeExercise;
     const sets = state.loggedSets[ex.exercise_id] || [];
     const fb = state.feedback[ex.exercise_id] || {};
-    const targetStr = `${ex.target_sets}x${ex.target_reps || '?'}${ex.target_weight_kg ? ` @ ${ex.target_weight_kg}kg` : ''}`;
+    const targetStr = `${ex.target_sets}x${ex.target_reps || '?'}${ex.target_weight_kg ? ` @ ${ex.target_weight_kg}kg` : ''}${ex.target_rpe ? ` (RPE ${ex.target_rpe})` : ''}${ex.rest_seconds ? ` | ${ex.rest_seconds >= 60 ? Math.floor(ex.rest_seconds / 60) + 'min' : ex.rest_seconds + 's'} rest` : ''}`;
     const cues = state.exerciseCues[ex.exercise_id];
 
     // Superset group label
@@ -380,6 +380,11 @@ function renderSessionScreen() {
                 <input type="number" id="input-rpe" inputmode="decimal" step="0.5" min="1" max="10"
                   placeholder="—" />
               </div>
+              <div class="input-group">
+                <label>Added (kg)</label>
+                <input type="number" id="input-added-weight" inputmode="decimal" step="0.5"
+                  placeholder="BW+" />
+              </div>
             </div>
             <button class="btn btn-primary" data-action="log-set" data-eid="${ex.exercise_id}"
               ${state.loading ? 'disabled' : ''}>Log Set</button>
@@ -389,7 +394,7 @@ function renderSessionScreen() {
                 ${sets.map((s, si) => `
                   <div class="logged-set">
                     <span class="set-num">${si + 1}</span>
-                    <span class="set-detail">${s.weight_kg ?? 0}kg x ${s.reps}${s.rpe ? ` @ RPE ${s.rpe}` : ''}</span>
+                    <span class="set-detail">${s.weight_added_kg ? `BW+${s.weight_added_kg}kg` : `${s.weight_kg ?? 0}kg`} x ${s.reps}${s.rpe ? ` @ RPE ${s.rpe}` : ''}</span>
                     <div class="set-actions">
                       <button class="set-action-btn" data-action="edit-set" data-set-idx="${si}" data-eid="${ex.exercise_id}">Edit</button>
                       <button class="set-action-btn delete" data-action="delete-set" data-set-id="${s.id}" data-eid="${ex.exercise_id}">Del</button>
@@ -416,14 +421,21 @@ function renderSessionScreen() {
       </div>`;
   });
 
+  const weekBanner = state.weekNumber === 5
+    ? '<div class="week-banner deload">DELOAD WEEK &mdash; lighter weights, fewer sets, RPE 5-6</div>'
+    : state.weekNumber === 6
+    ? '<div class="week-banner test">TEST WEEK</div>'
+    : '';
+
   return `
     ${offline}
     ${error}
     <div class="header">
       <button class="back-btn" data-action="end-workout">End Workout</button>
       <h1>${esc(state.selectedDay?.name || 'Workout')}</h1>
-      <div class="text-dim text-sm">${elapsedTime()}</div>
+      <div class="text-dim text-sm">Week ${state.weekNumber} &middot; ${elapsedTime()}</div>
     </div>
+    ${weekBanner}
     ${cards}
     ${state.editingSet ? renderEditModal() : ''}`;
 }
@@ -450,6 +462,7 @@ async function logSet(exerciseId) {
   const weight = parseFloat($('input-weight')?.value);
   const reps = parseInt($('input-reps')?.value);
   const rpe = parseFloat($('input-rpe')?.value) || null;
+  const addedWeight = parseFloat($('input-added-weight')?.value) || null;
 
   if (!reps || reps <= 0) { state.error = 'Enter reps'; render(); return; }
 
@@ -461,6 +474,7 @@ async function logSet(exerciseId) {
     const setData = { reps };
     if (!isNaN(weight)) setData.weight_kg = weight;
     if (rpe) setData.rpe = rpe;
+    if (addedWeight) setData.weight_added_kg = addedWeight;
 
     await rpc('log_sets', {
       p_workout_id: state.workoutId,
